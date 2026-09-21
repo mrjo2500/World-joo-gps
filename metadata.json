@@ -1,0 +1,6 @@
+{
+  "name": "mr Joo world",
+  "description": "High-performance cinematic drone simulation with smooth flight mechanics and vivid aerial optics.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
