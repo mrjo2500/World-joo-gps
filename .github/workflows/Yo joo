@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MR JOO WORLD — SUPREME 4K FPV DRONE SIMULATOR</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Cairo:wght@400;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Cairo',sans-serif;color:#fff}
+canvas{display:block;position:fixed;inset:0;z-index:1}
+
+/* Cinematic FX & Vignette */
+#cinematic-fx{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(circle at center,transparent 35%,rgba(0,0,0,0.85) 90%),linear-gradient(to bottom,rgba(0,120,255,0.03),rgba(0,0,0,0.6));}
+#film-grain{position:fixed;inset:0;z-index:3;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);opacity:.4}
+
+/* Professional HUD */
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none;font-family:'Orbitron',sans-serif}
+.top-hud{position:absolute;top:24px;left:24px;right:24px;display:flex;justify-content:space-between;align-items:center}
+.brand-box{background:rgba(5,8,15,0.85);border:1px solid rgba(0,229,255,0.4);padding:12px 22px;border-radius:14px;backdrop-filter:blur(12px);box-shadow:0 0 25px rgba(0,229,255,0.25)}
+.brand-title{font-size:15px;font-weight:900;letter-spacing:4px;color:#00e5ff}
+.brand-sub{font-size:9px;letter-spacing:3px;color:#ffaa00}
+
+.telemetry-panel{position:absolute;top:100px;left:24px;display:flex;flex-direction:column;gap:10px}
+.tele-card{background:rgba(5,8,15,0.85);border:1px solid rgba(255,255,255,0.12);padding:10px 16px;border-radius:10px;backdrop-filter:blur(10px);min-width:160px}
+.tele-label{font-size:8px;color:#8a9ba8;letter-spacing:1.5px}
+.tele-value{font-size:15px;font-weight:900;color:#00ffcc}
+
+.location-box{position:absolute;top:100px;right:24px;background:rgba(5,8,15,0.85);border:1px solid rgba(255,170,0,0.4);padding:14px 20px;border-radius:12px;backdrop-filter:blur(10px);text-align:right}
+.loc-title{font-size:14px;font-weight:900;color:#ffaa00;font-family:'Cairo',sans-serif}
+.loc-desc{font-size:9px;color:#aaa;font-family:'Cairo',sans-serif;letter-spacing:1px}
+
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border:1.5px solid rgba(0,229,255,0.35);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.crosshair::before,.crosshair::after{content:'';position:absolute;background:rgba(0,229,255,0.7)}
+.crosshair::before{width:20px;height:2px}
+.crosshair::after{width:2px;height:20px}
+.cross-dot{width:6px;height:6px;background:#ffaa00;border-radius:50%;box-shadow:0 0 10px #ffaa00}
+
+/* Control Dock */
+.control-dock{position:absolute;bottom:24px;left:24px;right:24px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:auto}
+.joystick-base{width:140px;height:140px;background:rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.15);border-radius:50%;position:relative;backdrop-filter:blur(12px);touch-action:none}
+.joystick-knob{width:56px;height:56px;background:linear-gradient(135deg,#00e5ff,#0066ff);border-radius:50%;position:absolute;top:42px;left:42px;box-shadow:0 0 20px rgba(0,229,255,0.6);transition:transform 0.04s linear}
+
+.buttons-col{display:flex;gap:12px}
+.ctrl-btn{background:rgba(10,15,25,0.85);border:1px solid rgba(0,229,255,0.4);color:#fff;padding:14px 20px;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;letter-spacing:1.5px;cursor:pointer;backdrop-filter:blur(10px);transition:0.2s}
+.ctrl-btn:active{background:rgba(0,229,255,0.3);transform:scale(0.94)}
+
+/* Cinematic Splash Intro */
+#splash-screen{position:fixed;inset:0;z-index:100;background:#010307;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;padding:24px}
+.splash-main-title{font-size:clamp(30px,6vw,56px);font-weight:900;letter-spacing:6px;background:linear-gradient(to right,#fff,#00e5ff,#ffaa00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-transform:uppercase}
+.splash-sub-desc{font-size:13px;color:#9aa0a6;max-width:540px;line-height:1.8;font-family:'Cairo',sans-serif}
+.launch-engine-btn{margin-top:20px;padding:18px 50px;background:linear-gradient(135deg,#ff5500,#ffaa00);border:none;border-radius:35px;color:#fff;font-size:15px;font-weight:900;letter-spacing:3px;cursor:pointer;box-shadow:0 0 40px rgba(255,85,0,0.6);transition:0.3s;font-family:'Orbitron',sans-serif}
+.launch-engine-btn:hover{transform:scale(1.06);box-shadow:0 0 60px rgba(255,170,0,0.9)}
+</style>
+</head>
+<body>
+
+<div id="cinematic-fx"></div>
+<div id="film-grain"></div>
+
+<div id="splash-screen">
+  <div class="splash-main-title">mr Joo world</div>
+  <div class="splash-sub-desc">أقوى محاكي طيران درون في العالم بجودة سينمائية فائقة. استعد لقيادة طائرتك بنفسك بأعلى إمكانيات تحكم فوق أجواء مصر (الدقهلية - بلقاس - المعصرة).</div>
+  <button class="launch-engine-btn" id="launchBtn">إطلاق محرك القيادة الواقعي</button>
+</div>
+
+<div id="hud" style="display:none">
+  <div class="top-hud">
+    <div class="brand-box">
+      <div class="brand-title">MR JOO WORLD</div>
+      <div class="brand-sub">SUPREME 4K FPV SYSTEM</div>
+    </div>
+  </div>
+
+  <div class="telemetry-panel">
+    <div class="tele-card"><div class="tele-label">ALTITUDE (الارتفاع)</div><div class="tele-value" id="dispAlt">140.0 م</div></div>
+    <div class="tele-card"><div class="tele-label">AIRSPEED (السرعة)</div><div class="tele-value" id="dispSpd">0.0 كم/س</div></div>
+    <div class="tele-card"><div class="tele-label">GIMBAL (زاوية الكاميرا)</div><div class="tele-value" id="dispCam">4K - FPV ACTIVE</div></div>
+  </div>
+
+  <div class="location-box">
+    <div class="loc-title">قطاع بلقاس - المعصرة</div>
+    <div class="loc-desc">محافظة الدقهلية، جمهورية مصر العربية</div>
+  </div>
+
+  <div class="crosshair"><div class="cross-dot"></div></div>
+
+  <div class="control-dock">
+    <div class="joystick-base" id="jsBase">
+      <div class="joystick-knob" id="jsKnob"></div>
+    </div>
+    <div class="buttons-col">
+      <button class="ctrl-btn" id="turboBtn">⚡ توربو خارق</button>
+      <button class="ctrl-btn" id="camModeBtn">👁 تغيير الكاميرا</button>
+      <button class="ctrl-btn" id="upBtn">▲ صعود</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+let scene, camera, renderer;
+let dronePos = new THREE.Vector3(0, 150, 0);
+let droneYaw = 0, dronePitch = 0;
+let currentSpd = 0, turboOn = false;
+let moveX = 0, moveY = 0, verticalInput = 0;
+let cameraPerspective = 0; // 0: FPV طيار حقيقي, 1: Chase Cam سينمائي خارجي
+
+function startSimulator() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x020408);
+  scene.fog = new THREE.FogExp2(0x020408, 0.0025);
+
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 6000);
+  renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: "high-performance"});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+
+  // إضاءة سينمائية متقدمة
+  const ambientLight = new THREE.AmbientLight(0x112233, 2.0);
+  scene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffeedd, 3.0);
+  sunLight.position.set(400, 800, 300);
+  scene.add(sunLight);
+
+  buildWorldEnvironment();
+  runLoop();
+}
+
+function buildWorldEnvironment() {
+  // الأرضية الخضراء والأراضي الزراعية الممتدة لدلتا مصر
+  const groundGeo = new THREE.PlaneGeometry(12000, 12000, 64, 64);
+  const groundMat = new THREE.MeshStandardMaterial({
+    color: 0x112814,
+    roughness: 0.85,
+    metalness: 0.05
+  });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+
+  // توليد مباني وأبراج وعمران واقعي يحيط بمسار التحليق
+  for (let i = 0; i < 400; i++) {
+    const h = Math.random() * 180 + 25;
+    const bMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0.12 + Math.random()*0.08, 0.15 + Math.random()*0.1, 0.2 + Math.random()*0.1),
+      roughness: 0.4,
+      metalness: 0.7
+    });
+    const building = new THREE.Mesh(new THREE.BoxGeometry(40, h, 40), bMat);
+    
+    const px = (Math.random() - 0.5) * 5000;
+    const pz = (Math.random() - 0.5) * 5000;
+    if(Math.abs(px) > 200 || Math.abs(pz) > 200) {
+      building.position.set(px, h / 2, pz);
+      scene.add(building);
+    }
+  }
+
+  // نجوم سماء الليل الساحرة
+  const starsGeo = new THREE.BufferGeometry();
+  const count = 3000;
+  const positions = new Float32Array(count * 3);
+  for(let i=0; i<count*3; i++) positions[i] = (Math.random() - 0.5) * 4000;
+  starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 1.8});
+  scene.add(new THREE.Points(starsGeo, starsMat));
+}
+
+document.getElementById('launchBtn').addEventListener('click', () => {
+  document.getElementById('splash-screen').style.display = 'none';
+  document.getElementById('hud').style.display = 'block';
+  startSimulator();
+});
+
+// التحكم باللمس والتحجيم (Joystick الاحترافي)
+const jsBase = document.getElementById('jsBase');
+const jsKnob = document.getElementById('jsKnob');
+let activePointer = null;
+
+jsBase.addEventListener('pointerdown', e => {
+  activePointer = e.pointerId;
+  jsBase.setPointerCapture(activePointer);
+  updateJoystick(e);
+});
+jsBase.addEventListener('pointermove', e => {
+  if(e.pointerId === activePointer) updateJoystick(e);
+});
+jsBase.addEventListener('pointerup', releaseJoystick);
+jsBase.addEventListener('pointercancel', releaseJoystick);
+
+function updateJoystick(e) {
+  const rect = jsBase.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  let dx = (e.clientX - cx) / (rect.width * 0.4);
+  let dy = (e.clientY - cy) / (rect.height * 0.4);
+  const len = Math.hypot(dx, dy);
+  if(len > 1) { dx /= len; dy /= len; }
+  
+  moveX = dx;
+  moveY = dy;
+  jsKnob.style.transform = `translate(${dx * 38}px, ${dy * 38}px)`;
+}
+
+function releaseJoystick() {
+  activePointer = null;
+  moveX = 0;
+  moveY = 0;
+  jsKnob.style.transform = `translate(0px, 0px)`;
+}
+
+document.getElementById('turboBtn').addEventListener('pointerdown', () => turboOn = true);
+document.getElementById('turboBtn').addEventListener('pointerup', () => turboOn = false);
+document.getElementById('upBtn').addEventListener('pointerdown', () => verticalInput = 1);
+document.getElementById('upBtn').addEventListener('pointerup', () => verticalInput = 0);
+document.getElementById('camModeBtn').addEventListener('click', () => {
+  cameraPerspective = (cameraPerspective + 1) % 2;
+});
+
+function runLoop() {
+  requestAnimationFrame(runLoop);
+
+  const maxSpdLimit = turboOn ? 10.0 : 3.5;
+  currentSpd = THREE.MathUtils.lerp(currentSpd, -moveY * maxSpdLimit, 0.08);
+  droneYaw -= moveX * 0.035;
+
+  // حركة الدرون في الفضاء
+  const forwardVec = new THREE.Vector3(Math.sin(droneYaw), 0, Math.cos(droneYaw));
+  dronePos.addScaledVector(forwardVec, currentSpd);
+  dronePos.y = Math.max(12, Math.min(1000, dronePos.y + verticalInput * 4.0));
+
+  // تحديث كاميرا التصوير السينمائي
+  if(cameraPerspective === 0) {
+    // منظور الطيار الفردي (FPV حقيقي من عدسة الدرون)
+    camera.position.copy(dronePos);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = droneYaw;
+    camera.rotation.x = moveY * 0.25;
+  } else {
+    // منظور سينمائي خارجي (Chase Cam احترافي)
+    const camOffset = new THREE.Vector3(-Math.sin(droneYaw) * 45, 16, -Math.cos(droneYaw) * 45);
+    camera.position.copy(dronePos).add(camOffset);
+    camera.lookAt(dronePos);
+  }
+
+  // تحديث شاشة القياسات الفورية
+  document.getElementById('dispAlt').textContent = dronePos.y.toFixed(1) + ' م';
+  document.getElementById('dispSpd').textContent = (Math.abs(currentSpd) * 50).toFixed(1) + ' كم/س';
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  if(camera && renderer) {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  }
+});
+</script>
+</body>
+</html>
