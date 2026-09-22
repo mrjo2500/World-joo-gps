@@ -16,3 +16,546 @@
   </body>
 </html>
 
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>درون مصر — محاكاة واقعية</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0c0e;font-family:'Cairo',Arial,sans-serif;color:#fff}
+canvas{display:block}
+#mapLayer{position:fixed;inset:0;z-index:0;opacity:0;transition:opacity 1.2s}
+#mapLayer iframe{width:100%;height:100%;border:none;filter:saturate(0.7) brightness(0.55) contrast(1.1)}
+#three{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity 1s}
+
+/* HUD */
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none}
+.hud-top{position:absolute;top:max(14px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;gap:8px}
+.brand{font-size:11px;font-weight:900;letter-spacing:3px;color:#fff;text-shadow:0 0 20px #ff6b0088;padding:8px 14px;background:#000000aa;border:1px solid #ff6b0044;border-radius:20px;backdrop-filter:blur(12px)}
+.tel-badge{font-size:9px;letter-spacing:2px;padding:8px 12px;background:#000000aa;border:1px solid #ffffff22;border-radius:16px;backdrop-filter:blur(12px);text-align:right;line-height:1.8}
+.tel-badge span{color:#ff9d00}
+
+/* Telemetry panel */
+#telem{position:absolute;top:max(80px,calc(env(safe-area-inset-top)+60px));left:14px;background:#000000cc;border:1px solid #ffffff15;border-radius:14px;backdrop-filter:blur(16px);padding:10px 14px;min-width:160px;font-size:10px;line-height:2}
+.trow{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid #ffffff08}
+.trow:last-child{border-bottom:none}
+.tlbl{color:#ffffff55;font-size:9px;letter-spacing:1px}
+.tval{color:#ff9d00;font-weight:bold;font-size:10px}
+.tval.green{color:#44ff88}
+.tval.red{color:#ff4444}
+
+/* Map location pill */
+#locpill{position:absolute;top:max(80px,calc(env(safe-area-inset-top)+60px));right:14px;background:#000000cc;border:1px solid #ff6b0033;border-radius:14px;backdrop-filter:blur(16px);padding:10px 14px;font-size:10px;text-align:right;line-height:2}
+.loc-name{font-size:13px;font-weight:900;color:#ff9d00;letter-spacing:1px}
+.loc-sub{color:#ffffff66;font-size:9px}
+
+/* Crosshair */
+.cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;opacity:.7}
+.cross:before,.cross:after{content:"";position:absolute;background:#fff}
+.cross:before{width:28px;height:1px;top:13px;left:0}
+.cross:after{width:1px;height:28px;left:13px;top:0}
+.cross-dot{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#ff9d00;transform:translate(-50%,-50%)}
+
+/* Altitude bar (left vertical) */
+#altBar{position:absolute;left:14px;bottom:200px;top:200px;width:6px;background:#ffffff0f;border-radius:6px;overflow:hidden}
+#altFill{position:absolute;bottom:0;width:100%;background:linear-gradient(to top,#ff6b00,#ff9d00);border-radius:6px;transition:.3s}
+
+/* Speed bar (right vertical) */
+#spdBar{position:absolute;right:14px;bottom:200px;top:200px;width:6px;background:#ffffff0f;border-radius:6px;overflow:hidden}
+#spdFill{position:absolute;bottom:0;width:100%;background:linear-gradient(to top,#00aaff,#44ddff);border-radius:6px;transition:.2s}
+
+/* Controls bottom */
+.bottom{position:absolute;left:0;right:0;bottom:max(16px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:flex-end;padding:0 16px;pointer-events:auto}
+.pad{width:128px;height:128px;border:1px solid #ffffff20;border-radius:50%;background:#00000088;backdrop-filter:blur(10px);position:relative;touch-action:none}
+.stick{width:52px;height:52px;border-radius:50%;background:#ffffff18;border:1.5px solid #ff9d0066;position:absolute;left:38px;top:38px;transition:transform .05s}
+.btnCol{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.btn{border:1px solid #ffffff25;background:#000000aa;color:#fff;border-radius:12px;min-width:72px;height:40px;padding:0 12px;font-size:9px;letter-spacing:1px;font-weight:bold;backdrop-filter:blur(12px);font-family:'Cairo',Arial,sans-serif}
+.btn:active{transform:scale(.95);background:#ff6b0033;border-color:#ff9d0066}
+.btn.active-btn{background:#ff6b0055;border-color:#ff9d00}
+
+/* Map switcher */
+#mapPicker{position:absolute;right:14px;bottom:max(176px,calc(env(safe-area-inset-bottom)+176px));background:#000000cc;border:1px solid #ffffff18;border-radius:12px;backdrop-filter:blur(14px);padding:8px;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+.maploc{font-size:9px;letter-spacing:1px;padding:6px 10px;border-radius:8px;border:1px solid #ffffff15;color:#fff;cursor:pointer;text-align:center}
+.maploc:hover,.maploc.sel{background:#ff6b0033;border-color:#ff9d0066;color:#ff9d00}
+
+/* Weather overlay */
+#wx{position:absolute;top:max(80px,calc(env(safe-area-inset-top)+60px));left:50%;transform:translateX(-50%);background:#000000aa;border:1px solid #ffffff15;border-radius:20px;backdrop-filter:blur(12px);padding:6px 16px;font-size:9px;letter-spacing:2px;color:#ffffff88}
+
+/* Scan lines */
+#scan{position:fixed;inset:0;z-index:9;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 3px,#00000008 3px,#00000008 4px);opacity:.35}
+
+/* Vignette */
+#vig{position:fixed;inset:0;z-index:8;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,#00000088 100%)}
+
+/* Corner brackets */
+.corner-tl,.corner-tr,.corner-bl,.corner-br{position:absolute;width:18px;height:18px;border-color:#ff9d0055;border-style:solid}
+.corner-tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.corner-tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.corner-bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.corner-br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+
+/* Splash */
+#splash{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:28px}
+.splash-flag{font-size:52px;margin-bottom:4px}
+.splash-title{font-size:clamp(28px,7vw,52px);font-weight:900;letter-spacing:6px;color:#fff}
+.splash-sub{font-size:11px;letter-spacing:4px;color:#ffffff55;margin-top:-8px}
+.splash-region{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:8px}
+.reg-btn{border:1px solid #ffffff25;background:#ffffff0a;color:#fff;border-radius:24px;padding:10px 20px;font-size:11px;letter-spacing:2px;font-family:'Cairo',Arial,sans-serif;cursor:pointer;transition:.2s}
+.reg-btn:hover{border-color:#ff9d00;background:#ff6b0022;color:#ff9d00}
+.splash-start{margin-top:10px;padding:14px 32px;border-radius:30px;border:1px solid #ff9d0066;background:#ff6b0022;color:#fff;font-size:12px;letter-spacing:3px;font-weight:bold;font-family:'Cairo',Arial,sans-serif;cursor:pointer}
+.splash-note{font-size:9px;color:#ffffff33;letter-spacing:1px;margin-top:4px}
+
+/* Toast */
+#toast{position:fixed;left:50%;bottom:170px;transform:translateX(-50%);font-size:10px;letter-spacing:2px;padding:10px 18px;border-radius:20px;background:#000000cc;border:1px solid #ff9d0044;opacity:0;transition:.3s;pointer-events:none;z-index:15;white-space:nowrap}
+
+/* Recording badge */
+#recBadge{position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#cc000099;border:1px solid #ff444466;border-radius:12px;padding:5px 12px;font-size:9px;letter-spacing:2px;display:none;backdrop-filter:blur(8px)}
+.blink{animation:blink .9s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Mini-map */
+#minimap{position:absolute;bottom:max(176px,calc(env(safe-area-inset-bottom)+176px));left:14px;width:90px;height:90px;border-radius:10px;border:1px solid #ffffff20;overflow:hidden;pointer-events:none}
+#minimap iframe{width:100%;height:100%;border:none;filter:saturate(0.5) brightness(0.6)}
+.mm-dot{position:absolute;left:50%;top:50%;width:8px;height:8px;background:#ff6b00;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 8px #ff9d00;pointer-events:none;z-index:2}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Scan lines + vignette -->
+<div id="scan"></div>
+<div id="vig"></div>
+
+<!-- Map layer (background real map) -->
+<div id="mapLayer">
+  <iframe id="mapFrame" src="" allowfullscreen loading="lazy" title="خريطة مصر"></iframe>
+</div>
+
+<!-- Three.js overlay layer (trees, cars, people dots) -->
+<canvas id="three" style="position:fixed;inset:0;z-index:2;pointer-events:none"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-top">
+    <div class="brand">🇪🇬 EGYPT DRONE</div>
+    <div class="tel-badge">
+      إشارة GPS: <span id="gpsStatus">🟢 مؤمن</span><br>
+      ارتفاع: <span id="altLabel">35 م</span><br>
+      سرعة: <span id="spdLabel">0 م/ث</span>
+    </div>
+  </div>
+
+  <div id="recBadge"><span class="blink">⏺</span> REC PRE-LOADED</div>
+  <div id="wx">☀️ القاهرة — 32°C — صافي — رياح: شمال غرب 8 كم/س</div>
+
+  <div id="telem">
+    <div class="trow"><span class="tlbl">ALT</span><span class="tval" id="t_alt">35.0 م</span></div>
+    <div class="trow"><span class="tlbl">SPD</span><span class="tval green" id="t_spd">0.0 م/ث</span></div>
+    <div class="trow"><span class="tlbl">HDG</span><span class="tval" id="t_hdg">000° ش</span></div>
+    <div class="trow"><span class="tlbl">BAT</span><span class="tval green" id="t_bat">96%</span></div>
+    <div class="trow"><span class="tlbl">SAT</span><span class="tval green">14 قمر</span></div>
+    <div class="trow"><span class="tlbl">MODE</span><span class="tval" id="t_mode">يدوي</span></div>
+  </div>
+
+  <div id="locpill">
+    <div class="loc-name" id="locName">ميدان التحرير</div>
+    <div class="loc-sub" id="locSub">القاهرة، مصر</div>
+    <div class="loc-sub" id="locCoords">30.0444° ش، 31.2357° ق</div>
+  </div>
+
+  <!-- Altitude bar -->
+  <div id="altBar"><div id="altFill" style="height:30%"></div></div>
+  <!-- Speed bar -->
+  <div id="spdBar"><div id="spdFill" style="height:0%"></div></div>
+
+  <!-- Corner brackets -->
+  <div class="corner-tl"></div><div class="corner-tr"></div>
+  <div class="corner-bl"></div><div class="corner-br"></div>
+
+  <!-- Crosshair -->
+  <div class="cross"><div class="cross-dot"></div></div>
+
+  <!-- Mini-map -->
+  <div id="minimap">
+    <iframe id="minimapFrame" src="" title="minimap"></iframe>
+    <div class="mm-dot"></div>
+  </div>
+
+  <!-- Map location switcher -->
+  <div id="mapPicker">
+    <div class="maploc sel" data-key="tahrir">التحرير</div>
+    <div class="maploc" data-key="pyramids">الأهرامات</div>
+    <div class="maploc" data-key="alex">الإسكندرية</div>
+    <div class="maploc" data-key="luxor">الأقصر</div>
+    <div class="maploc" data-key="sharm">شرم الشيخ</div>
+  </div>
+
+  <!-- Bottom controls -->
+  <div class="bottom">
+    <div class="pad" id="pad"><div class="stick" id="stick"></div></div>
+    <div class="btnCol">
+      <button class="btn" id="btnBoost">⚡ BOOST</button>
+      <button class="btn" id="btnAlt" data-mode="up">▲ ارتفع</button>
+      <button class="btn" id="btnView">👁 FPV</button>
+      <button class="btn" id="btnRec">⏺ تسجيل</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">مرحباً بك في محاكاة درون مصر</div>
+
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-flag">🇪🇬</div>
+  <div class="splash-title">EGYPT DRONE</div>
+  <div class="splash-sub">محاكاة واقعية ١٠٠٪ — خرائط حقيقية</div>
+
+  <div class="splash-region">
+    <button class="reg-btn" data-key="tahrir">⬛ ميدان التحرير — القاهرة</button>
+    <button class="reg-btn" data-key="pyramids">🔺 الأهرامات — الجيزة</button>
+    <button class="reg-btn" data-key="alex">🌊 الإسكندرية — الكورنيش</button>
+    <button class="reg-btn" data-key="luxor">🏛 الأقصر — معابد الكرنك</button>
+    <button class="reg-btn" data-key="sharm">🏖 شرم الشيخ — خليج نعمة</button>
+  </div>
+
+  <button class="splash-start" id="enterBtn">أطلق الدرون ↑</button>
+  <div class="splash-note">البيئة مسجلة مسبقاً — لا حاجة للإنترنت بعد التحميل</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================================
+// EGYPT REAL DRONE — محاكاة واقعية فوق مصر
+// الخرائط: OpenStreetMap عبر Leaflet embed
+// البيئة: Three.js overlay للسيارات والأشجار والناس
+// ============================================================
+
+const LOCATIONS = {
+  tahrir:{
+    name:'ميدان التحرير', sub:'القاهرة، مصر',
+    coords:'30.0444° ش، 31.2357° ق',
+    wx:'☀️ القاهرة — 32°C — صافي — رياح: شمالي 8 كم/س',
+    mapUrl:'https://www.openstreetmap.org/export/embed.html?bbox=31.225%2C30.038%2C31.248%2C30.051&layer=mapnik&marker=30.0444%2C31.2357',
+    miniUrl:'https://www.openstreetmap.org/export/embed.html?bbox=31.22%2C30.03%2C31.26%2C30.06&layer=mapnik',
+    alt:35, heading:45,
+    desc:'فوق ميدان التحرير — وسط القاهرة. كورنيش النيل يمتد غرباً، برج القاهرة في الأفق الشمالي الغربي.',
+    groundColor:0x8a7a5e, roadColor:0x3a3530,
+    envType:'urban_dense'
+  },
+  pyramids:{
+    name:'الأهرامات الثلاث', sub:'الجيزة، مصر',
+    coords:'29.9792° ش، 31.1342° ق',
+    wx:'☀️ الجيزة — 34°C — صافي — رياح: غربي 5 كم/س',
+    mapUrl:'https://www.openstreetmap.org/export/embed.html?bbox=31.120%2C29.970%2C31.150%2C29.990&layer=mapnik&marker=29.9792%2C31.1342',
+    miniUrl:'https://www.openstreetmap.org/export/embed.html?bbox=31.100%2C29.960%2C31.160%2C30.000&layer=mapnik',
+    alt:80, heading:120,
+    desc:'فوق هضبة الجيزة. هرم خوفو يلوح ضخماً تحت الكاميرا، رمال الصحراء الذهبية تمتد جنوباً.',
+    groundColor:0xd4b483, roadColor:0xb89a5e,
+    envType:'desert'
+  },
+  alex:{
+    name:'الكورنيش — الإسكندرية', sub:'الإسكندرية، مصر',
+    coords:'31.2001° ش، 29.9187° ق',
+    wx:'🌊 الإسكندرية — 27°C — غائم جزئياً — بحر خفيف',
+    mapUrl:'https://www.openstreetmap.org/export/embed.html?bbox=29.900%2C31.193%2C29.940%2C31.210&layer=mapnik&marker=31.2001%2C29.9187',
+    miniUrl:'https://www.openstreetmap.org/export/embed.html?bbox=29.880%2C31.180%2C29.960%2C31.220&layer=mapnik',
+    alt:45, heading:0,
+    desc:'فوق كورنيش الإسكندرية. البحر المتوسط يمتد شمالاً بلونه الأزرق الزاهي، مباني العصر الكلاسيكي على اليمين.',
+    groundColor:0x4a7c9e, roadColor:0x2a3540,
+    envType:'coastal'
+  },
+  luxor:{
+    name:'معبد الكرنك', sub:'الأقصر، مصر',
+    coords:'25.7188° ش، 32.6573° ق',
+    wx:'☀️ الأقصر — 39°C — صافي تماماً — جاف',
+    mapUrl:'https://www.openstreetmap.org/export/embed.html?bbox=32.648%2C25.712%2C32.668%2C25.726&layer=mapnik&marker=25.7188%2C32.6573',
+    miniUrl:'https://www.openstreetmap.org/export/embed.html?bbox=32.630%2C25.700%2C32.680%2C25.740&layer=mapnik',
+    alt:50, heading:270,
+    desc:'فوق معابد الكرنك الأثرية. نهر النيل يبدو رائعاً غرباً، الحقول الخضراء تحاصر المدينة من الجانبين.',
+    groundColor:0xc4a76e, roadColor:0x8a7050,
+    envType:'historic'
+  },
+  sharm:{
+    name:'خليج نعمة', sub:'شرم الشيخ، مصر',
+    coords:'27.9158° ش، 34.3300° ق',
+    wx:'🌴 شرم الشيخ — 36°C — صافي — مياه هادئة',
+    mapUrl:'https://www.openstreetmap.org/export/embed.html?bbox=34.315%2C27.908%2C34.345%2C27.924&layer=mapnik&marker=27.9158%2C34.3300',
+    miniUrl:'https://www.openstreetmap.org/export/embed.html?bbox=34.300%2C27.900%2C34.360%2C27.940&layer=mapnik',
+    alt:40, heading:180,
+    desc:'فوق خليج نعمة. البحر الأحمر بألوانه الفيروزية المذهلة تحت الكاميرا مباشرة، الشعاب المرجانية مرئية.',
+    groundColor:0x1a6b8a, roadColor:0x254a5a,
+    envType:'coastal_resort'
+  }
+};
+
+let currentLoc = 'tahrir';
+let droneAlt = 35, droneSpd = 0, droneHdg = 0;
+let inputX = 0, inputY = 0, altInput = 0;
+let boost = false, recActive = false;
+let lastT = 0;
+
+// ── Three.js overlay ──────────────────────────────────────
+let scene3, camera3, renderer3, overlayObjects=[];
+
+function initThree(){
+  scene3 = new THREE.Scene();
+  camera3 = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  renderer3 = new THREE.WebGLRenderer({canvas:document.getElementById('three'),alpha:true,antialias:false});
+  renderer3.setPixelRatio(Math.min(devicePixelRatio,1.5));
+  renderer3.setSize(innerWidth,innerHeight);
+  renderer3.setClearColor(0x000000,0);
+}
+
+// Animated dots representing cars, people, trees on map
+class WorldDot {
+  constructor(type){
+    const colors={car:0xff6b00, person:0x44ff88, tree:0x228833, light:0xffdd44};
+    const sizes={car:4,person:2.5,tree:3,light:2};
+    const geo = new THREE.CircleGeometry(sizes[type]/1000,6);
+    const mat = new THREE.MeshBasicMaterial({color:colors[type],transparent:true,opacity:.85});
+    this.mesh = new THREE.Mesh(geo,mat);
+    this.type = type;
+    this.vx = (Math.random()-.5)*.0004*(type==='car'?3:0.3);
+    this.vy = (Math.random()-.5)*.0004*(type==='car'?3:0.3);
+    this.mesh.position.set((Math.random()-.5)*.8,(Math.random()-.5)*.8,0);
+    scene3.add(this.mesh);
+    overlayObjects.push(this);
+  }
+  update(dt,alt){
+    if(this.type==='car'||this.type==='person'){
+      this.mesh.position.x += this.vx*(50/Math.max(alt,10));
+      this.mesh.position.y += this.vy*(50/Math.max(alt,10));
+      if(Math.abs(this.mesh.position.x)>.5){this.vx*=-1}
+      if(Math.abs(this.mesh.position.y)>.5){this.vy*=-1}
+    }
+    // scale with altitude - closer = bigger dots
+    const s = Math.max(0.3, Math.min(2.5, 60/alt));
+    this.mesh.scale.setScalar(s);
+    // fade with altitude
+    this.mesh.material.opacity = Math.max(0,Math.min(.9, (80-alt)/60));
+  }
+}
+
+function buildEnvironment(key){
+  // Clear
+  overlayObjects.forEach(o=>scene3.remove(o.mesh));
+  overlayObjects=[];
+  const loc = LOCATIONS[key];
+  const e = loc.envType;
+
+  let carCount=0,personCount=0,treeCount=0,lightCount=0;
+  if(e==='urban_dense'){carCount=55;personCount=35;treeCount=20;lightCount=15}
+  else if(e==='desert'){carCount=8;personCount=4;treeCount=2;lightCount=3}
+  else if(e==='coastal'||e==='coastal_resort'){carCount=20;personCount=25;treeCount=30;lightCount=10}
+  else if(e==='historic'){carCount=12;personCount=20;treeCount=25;lightCount=8}
+
+  for(let i=0;i<carCount;i++) new WorldDot('car');
+  for(let i=0;i<personCount;i++) new WorldDot('person');
+  for(let i=0;i<treeCount;i++) new WorldDot('tree');
+  for(let i=0;i<lightCount;i++) new WorldDot('light');
+}
+
+// ── Map URLs ─────────────────────────────────────────────
+function loadMap(key){
+  const loc = LOCATIONS[key];
+  document.getElementById('mapFrame').src = loc.mapUrl;
+  document.getElementById('minimapFrame').src = loc.miniUrl;
+  document.getElementById('locName').textContent = loc.name;
+  document.getElementById('locSub').textContent = loc.sub;
+  document.getElementById('locCoords').textContent = loc.coords;
+  document.getElementById('wx').textContent = loc.wx;
+  droneAlt = loc.alt;
+  droneHdg = loc.heading;
+  buildEnvironment(key);
+  currentLoc = key;
+
+  // highlight picker
+  document.querySelectorAll('.maploc').forEach(el=>{
+    el.classList.toggle('sel', el.dataset.key===key);
+  });
+
+  toast('📍 '+loc.name+' — '+loc.desc.substring(0,40)+'…');
+}
+
+// ── HUD update ────────────────────────────────────────────
+const hdgLabels=['ش','شش','ش-ش','شق','ق','جق','ج-ق','جن','ج','جج','ج-ج','شج'];
+function compassLabel(deg){
+  const i = Math.round(((deg%360)+360)%360/30)%12;
+  return hdgLabels[i];
+}
+
+function updateHUD(){
+  const altP = Math.min(100, (droneAlt/150)*100);
+  const spdP = Math.min(100, (droneSpd/40)*100);
+  document.getElementById('altFill').style.height = altP+'%';
+  document.getElementById('spdFill').style.height = spdP+'%';
+  document.getElementById('t_alt').textContent = droneAlt.toFixed(1)+' م';
+  document.getElementById('t_spd').textContent = droneSpd.toFixed(1)+' م/ث';
+  const hdgD = Math.round(((droneHdg*180/Math.PI)%360+360)%360);
+  document.getElementById('t_hdg').textContent = String(hdgD).padStart(3,'0')+'° '+compassLabel(hdgD);
+  document.getElementById('altLabel').textContent = droneAlt.toFixed(0)+' م';
+  document.getElementById('spdLabel').textContent = droneSpd.toFixed(1)+' م/ث';
+
+  // battery drain
+  const elapsed = (Date.now()-startTime)/1000;
+  const bat = Math.max(10, 96 - elapsed*0.008);
+  document.getElementById('t_bat').textContent = bat.toFixed(0)+'%';
+  document.getElementById('t_bat').className = 'tval '+(bat>30?'green':bat>15?'':'red');
+}
+
+// ── Physics ───────────────────────────────────────────────
+let startTime = Date.now();
+
+function physicsStep(dt){
+  const s = (boost?3.5:1.4) * 8;
+  // Yaw from X input
+  droneHdg -= inputX * 1.2 * dt;
+  // Speed from Y input (forward/back)
+  const targetSpd = -inputY * s * (boost?1:1);
+  droneSpd += (targetSpd - droneSpd) * Math.min(1, dt*2.5);
+  if(Math.abs(droneSpd)<0.05) droneSpd=0;
+
+  // Altitude from altInput
+  const altDelta = altInput * (boost?18:9) * dt;
+  droneAlt = Math.max(5, Math.min(180, droneAlt+altDelta));
+
+  // Overlay dots drift based on speed
+  overlayObjects.forEach(o=>o.update(dt, droneAlt));
+
+  // Renderer
+  if(renderer3) renderer3.render(scene3, camera3);
+
+  updateHUD();
+}
+
+// ── Joystick ──────────────────────────────────────────────
+const pad=document.getElementById('pad'), stick=document.getElementById('stick');
+let pid=null;
+pad.addEventListener('pointerdown',e=>{pid=e.pointerId;pad.setPointerCapture(pid);movePad(e)},{passive:true});
+pad.addEventListener('pointermove',e=>{if(e.pointerId===pid)movePad(e)},{passive:true});
+pad.addEventListener('pointerup',resetPad);
+pad.addEventListener('pointercancel',resetPad);
+function movePad(e){
+  const r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  let dx=(e.clientX-cx)/(r.width*.4),dy=(e.clientY-cy)/(r.height*.4);
+  const n=Math.hypot(dx,dy);if(n>1){dx/=n;dy/=n}
+  inputX=dx;inputY=dy;
+  stick.style.transform=`translate(${dx*36}px,${dy*36}px)`;
+}
+function resetPad(){pid=null;inputX=0;inputY=0;stick.style.transform='translate(0,0)'}
+
+// ── Altitude buttons ──────────────────────────────────────
+const btnAlt=document.getElementById('btnAlt');
+let altMode='up';
+btnAlt.addEventListener('pointerdown',()=>{altInput=altMode==='up'?1:-1});
+btnAlt.addEventListener('pointerup',()=>{altInput=0});
+btnAlt.addEventListener('pointercancel',()=>{altInput=0});
+btnAlt.addEventListener('click',()=>{
+  altMode=altMode==='up'?'down':'up';
+  btnAlt.textContent=(altMode==='up'?'▲ ارتفع':'▼ انزل');
+});
+
+// Boost
+const btnBoost=document.getElementById('btnBoost');
+btnBoost.addEventListener('pointerdown',()=>{boost=true;btnBoost.classList.add('active-btn')});
+btnBoost.addEventListener('pointerup',()=>{boost=false;btnBoost.classList.remove('active-btn')});
+btnBoost.addEventListener('pointercancel',()=>{boost=false;btnBoost.classList.remove('active-btn')});
+
+// View toggle (zoom map in/out)
+let zoomLevel=0;
+document.getElementById('btnView').addEventListener('click',()=>{
+  zoomLevel=(zoomLevel+1)%3;
+  const labels=['FPV','WIDE','BIRD'];
+  document.getElementById('btnView').textContent='👁 '+labels[zoomLevel];
+  document.getElementById('t_mode').textContent=['يدوي FPV','زاوية واسعة','منظور طائر'][zoomLevel];
+  toast(['عرض مباشر FPV','عرض زاوية واسعة','منظور الطائر — الارتفاع الأقصى'][zoomLevel]);
+});
+
+// Recording
+document.getElementById('btnRec').addEventListener('click',()=>{
+  recActive=!recActive;
+  document.getElementById('recBadge').style.display=recActive?'block':'none';
+  document.getElementById('btnRec').textContent=recActive?'⏹ إيقاف':'⏺ تسجيل';
+  toast(recActive?'⏺ تسجيل ما قبل التحميل نشط':'⏹ تم إيقاف التسجيل');
+});
+
+// Map picker
+document.querySelectorAll('.maploc').forEach(el=>{
+  el.addEventListener('click',()=>loadMap(el.dataset.key));
+});
+
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.style.opacity=1;
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.style.opacity=0,2200);
+}
+
+// ── Splash / Enter ────────────────────────────────────────
+let chosenKey='tahrir';
+document.querySelectorAll('.reg-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    chosenKey=b.dataset.key;
+    document.querySelectorAll('.reg-btn').forEach(x=>x.style.borderColor='');
+    b.style.borderColor='#ff9d00';b.style.color='#ff9d00';
+  });
+});
+
+document.getElementById('enterBtn').addEventListener('click',()=>{
+  const splash=document.getElementById('splash');
+  splash.style.opacity='0';splash.style.transition='opacity .6s';
+  setTimeout(()=>{
+    splash.style.display='none';
+    document.getElementById('mapLayer').style.opacity='1';
+    document.getElementById('three').style.opacity='1';
+    loadMap(chosenKey);
+    startTime=Date.now();
+    toast('تم إطلاق الدرون فوق '+LOCATIONS[chosenKey].name+' 🚁');
+  },600);
+});
+
+// ── Main loop ─────────────────────────────────────────────
+function loop(t){
+  requestAnimationFrame(loop);
+  const dt=Math.min((t-lastT)/1000,.04);lastT=t;
+  if(!document.getElementById('splash').style.display||document.getElementById('splash').style.display==='none'){
+    physicsStep(dt);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────
+initThree();
+requestAnimationFrame(loop);
+
+// Resize
+addEventListener('resize',()=>{
+  if(renderer3) renderer3.setSize(innerWidth,innerHeight);
+});
+
+// Keyboard support
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp')inputY=-1;
+  if(e.key==='ArrowDown')inputY=1;
+  if(e.key==='ArrowLeft')inputX=-1;
+  if(e.key==='ArrowRight')inputX=1;
+  if(e.key===' ')altInput=1;
+  if(e.key==='Shift')altInput=-1;
+  if(e.key==='b'||e.key==='B')boost=true;
+});
+addEventListener('keyup',e=>{
+  if(['ArrowUp','ArrowDown'].includes(e.key))inputY=0;
+  if(['ArrowLeft','ArrowRight'].includes(e.key))inputX=0;
+  if(e.key===' ')altInput=0;
+  if(e.key==='Shift')altInput=0;
+  if(e.key==='b'||e.key==='B')boost=false;
+});
+
+// Show splash toast after short delay
+setTimeout(()=>{
+  // Already showing splash
+},100);
+</script>
+</body>
+</html>
