@@ -1,0 +1,155 @@
+# Sample workflow for building and deploying a Jekyll site to GitHub Pages
+name: Deploy Jekyll with GitHub Pages dependencies preinstalled
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+  # Deployment job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MR JOO WORLD - FPV CITY (Rate + Safety)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Cairo:wght@400;700;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Cairo',sans-serif;color:#fff}
+  canvas{display:block;position:fixed;inset:0;z-index:1}
+  
+  #hud{position:fixed;inset:0;z-index:10;pointer-events:none;font-family:'Orbitron',sans-serif;display:none}
+  .top-hud{position:absolute;top:20px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .telemetry-panel{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+  .tele-card{background:rgba(5,8,15,0.85);border:1px solid rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;backdrop-filter:blur(10px);min-width:160px}
+  .tele-label{font-size:8px;color:#8a9ba8;letter-spacing:1.5px}
+  .tele-value{font-size:14px;font-weight:900;color:#00ffcc}
+</style>
+</head>
+
+<body>
+<div id="splash" style="position:fixed;inset:0;z-index:100;background:#010307;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:22px">
+  <div style="font-size:clamp(26px,6vw,48px);font-weight:900;letter-spacing:6px;background:linear-gradient(to right,#fff,#00e5ff,#ffaa00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-transform:uppercase;font-family:'Orbitron',sans-serif">
+    MR JOO WORLD - FPV CITY
+  </div>
+  <button id="launchBtn" style="padding:16px 44px;border-radius:28px;background:linear-gradient(135deg,#ff5500,#ffaa00);border:none;pointer-events:auto">
+    إطلاق محرك القيادة
+  </button>
+</div>
+
+<div id="hud">
+  <div class="top-hud">
+    <div class="telemetry-panel">
+      <div class="tele-card"><div class="tele-label">ALTITUDE</div><div class="tele-value" id="dispAlt">0.0 م</div></div>
+      <div class="tele-card"><div class="tele-label">AIRSPEED</div><div class="tele-value" id="dispSpd">0.0 كم/س</div></div>
+      <div class="tele-card"><div class="tele-label">LINK</div><div class="tele-value" id="dispLink">100</div></div>
+      <div class="tele-card"><div class="tele-label">الوقت</div><div class="tele-value" id="dispTime">0:00</div></div>
+      <div class="tele-card"><div class="tele-label">النقاط</div><div class="tele-value" id="dispPoints">0</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+let scene, camera, renderer, clock;
+let lastT = performance.now();
+let points = 0;
+
+// --- Helpers
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const updateTime = () => {
+  const time = Math.floor((performance.now() - lastT) / 1000);
+  document.getElementById('dispTime').innerText = `${Math.floor(time / 60)}:${time % 60 < 10 ? '0' : ''}${time % 60}`;
+};
+
+// --- State
+const state = {
+  armed:false,
+  turbo:false,
+  camMode:0, 
+  pos:new THREE.Vector3(0, 90, 0),
+  vel:new THREE.Vector3(0, 0, 0),
+  link:100
+};
+
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+  clock = new THREE.Clock();
+  
+  createCity();
+  animate();
+}
+
+function createCity() {
+  const groundGeo = new THREE.PlaneGeometry(4000, 4000);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f2a14 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+
+  for (let i = 0; i < 50; i++) {
+    const building = new THREE.Mesh(
+      new THREE.BoxGeometry(20, Math.random() * 50 + 10, 20),
+      new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })
+    );
+    building.position.set(Math.random() * 200 - 100, building.geometry.parameters.height / 2, Math.random() * 200 - 100);
+    scene.add(building);
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  updateTime();
+  renderer.render(scene, camera);
+}
+
+init();
+</script>
+</body>
+</html>
