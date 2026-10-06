@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Message, MapContext } from './types';
 import { OpenStreetMapProvider } from 'leaflet-geosearch';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Fix for default marker icons
 import L from 'leaflet';
@@ -336,6 +337,7 @@ export default function App() {
           box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
         }
       `}</style>
+      <SpeedInsights />
     </div>
   );
 }
